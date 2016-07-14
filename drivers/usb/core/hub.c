@@ -1981,7 +1981,7 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 			delay = hub_power_on(hub, false);
 			PREPARE_DELAYED_WORK(&hub->init_work, hub_init_func2);
 			queue_delayed_work(system_power_efficient_wq,
-					&hub->init_work,,
+					&hub->init_work,
 					msecs_to_jiffies(delay));
 
 			/* Suppress autosuspend until init is done */

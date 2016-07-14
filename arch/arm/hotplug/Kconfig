@@ -1,4 +1,4 @@
-onfig ASMP
+config ASMP
 	bool "Multi-core automatic hotplug support"
 	depends on SMP
 	default n
