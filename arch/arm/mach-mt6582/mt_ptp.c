@@ -539,7 +539,8 @@ unsigned int PTP_INIT_01(void)
     ptp_notice("PTPCHKSHIFT = %d\n", ptp_init_value.PTPCHKSHIFT);
 
     mt_fh_popod_save(); // disable frequency hopping (main PLL)
-    mt_cpufreq_disable_by_ptpod(); // disable DVFS and set vproc = 1.15v (1 GHz)
+// Disable PTPOD thing for now
+/*    mt_cpufreq_disable_by_ptpod(); // disable DVFS and set vproc = 1.15v (1 GHz) */
 
     PTP_Initialization_01(&ptp_init_value);
 
@@ -886,7 +887,7 @@ irqreturn_t mt_ptp_isr(int irq, void *dev_id)
             ptp_write(PTP_PTPINTSTS, 0x1);
 
             mt_cpufreq_enable_by_ptpod(); // enable DVFS
-            mt_fh_popod_restore(); // enable frequency hopping (main PLL)
+            mt_fh_popod_save(); // F4: disable freq hopping for now
 
             PTP_INIT_02();
         }
@@ -946,7 +947,7 @@ irqreturn_t mt_ptp_isr(int irq, void *dev_id)
             ptp_write(PTP_PTPINTSTS, 0x00ffffff);
 
             // restore default DVFS table (PMIC)
-            mt_cpufreq_return_default_DVS_by_ptpod();
+/*            mt_cpufreq_return_default_DVS_by_ptpod(); */
         }
     }
     else if ((PTPINTSTS & 0x00ff0000) != 0x0)  // PTP Monitor mode
@@ -1006,7 +1007,7 @@ irqreturn_t mt_ptp_isr(int irq, void *dev_id)
             ptp_write(PTP_PTPINTSTS, 0x00ffffff);
 
             // restore default DVFS table (PMIC)
-            mt_cpufreq_return_default_DVS_by_ptpod();
+/*            mt_cpufreq_return_default_DVS_by_ptpod(); */
         }
         else // PTP Monitor mode error handler
         {
@@ -1314,7 +1315,7 @@ void ptp_disable(void)
     ptp_write(PTP_PTPINTSTS, 0x00ffffff);
 
     // restore default DVFS table (PMIC)
-    mt_cpufreq_return_default_DVS_by_ptpod();
+/*    mt_cpufreq_return_default_DVS_by_ptpod(); */
 
     ptp_notice("Disable PTP-OD done.\n");
 
@@ -1341,7 +1342,7 @@ static int ptp_debug_read(char *buf, char **start, off_t off, int count, int *eo
 }
 
 /************************************
-* set PTP stauts by sysfs interface
+* set PTP status by sysfs interface
 *************************************/
 static ssize_t ptp_debug_write(struct file *file, const char *buffer, unsigned long count, void *data)
 {
@@ -1351,7 +1352,7 @@ static ssize_t ptp_debug_write(struct file *file, const char *buffer, unsigned l
     {
         if (enabled == 0)
         {            
-            ptp_disable(); // Disable PTP and restore default DVFS table (PMIC)
+            ptp_notice("argument invalid, currently in debugging mode\n"); // F4: disable this for debugging
         }
         else
         {
@@ -1496,7 +1497,7 @@ static ssize_t ptp_debug_write(struct file *file, const char *buffer, unsigned l
     {
         if (enabled == 0)
         {            
-            ptp_disable(); // Disable PTP and restore default DVFS table (PMIC)
+            ptp_notice("argument invalid, currently in debugging mode\n"); // F4: disable this for debugging
         }
         else
         {

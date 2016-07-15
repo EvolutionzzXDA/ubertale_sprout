@@ -92,10 +92,8 @@ static struct early_suspend mt_cpufreq_early_suspend_handler =
 };
 #endif
 
-#define DVFS_F0_1   (1690000)   // KHz
-#define DVFS_F0_2   (1599000)   // KHz
-#define DVFS_F0_3   (1495000)   // KHz
-#define DVFS_F0_4   (1391000)   // KHz
+#define DVFS_F0_1   (1500000)   // KHz
+#define DVFS_F0_2   (1420000)   // KHz
 #define DVFS_F0     (1300000)   // KHz
 #define DVFS_F1     (1196000)   // KHz
 #define DVFS_F1_1   (1092000)   // KHz
@@ -103,29 +101,36 @@ static struct early_suspend mt_cpufreq_early_suspend_handler =
 #define DVFS_F2_1   (1001000)   // KHz
 #define DVFS_F3     ( 747500)   // KHz
 #define DVFS_F4     ( 598000)   // KHz
+#define DVFS_F5     ( 470000)   // KHz
+#define DVFS_F6     ( 385000)   // KHz
 
 #if defined(HQA_LV_1_09V)
+    #define DVFS_V0_4   (1250)  // mV
     #define DVFS_V0     (1200)  // mV
     #define DVFS_V1     (1150)  // mV
     #define DVFS_V2     (1090)  // mV
     #define DVFS_V3     (1090)  // mV
+    #define DVFS_V4     (1040)  // mV
 #elif defined(HQA_NV_1_15V)
     #define DVFS_V0     (1260)  // mV
     #define DVFS_V1     (1200)  // mV
     #define DVFS_V2     (1150)  // mV
     #define DVFS_V3     (1050)  // mV /*Not used */
+    #define DVFS_V4     (1000)  // mV
 #elif defined(HQA_HV_1_21V)
     #define DVFS_V0     (1320)  // mV
     #define DVFS_V1     (1210)  // mV
     #define DVFS_V2     (1150)  // mV /*Not used */
     #define DVFS_V3     (1050)  // mV /*Not used */
 #else /* Normal case */
+    #define DVFS_V0_4   (1275)  // mV
     #define DVFS_V0     (1250)  // mV
     #define DVFS_V1     (1200)  // mV
     #define DVFS_V2     (1150)  // mV
     #ifdef MT_DVFS_LOW_VOLTAGE_SUPPORT
     #define DVFS_V3     (1050)  // mV
     #endif
+    #define DVFS_V4     (1050)  // mV
 #endif
 
 /*****************************************
@@ -141,7 +146,7 @@ static struct early_suspend mt_cpufreq_early_suspend_handler =
 /***********************************************
 * RMAP DOWN TIMES to postpone frequency degrade
 ************************************************/
-#define RAMP_DOWN_TIMES (2)
+#define RAMP_DOWN_TIMES (0)
 
 /**********************************
 * Available Clock Source for CPU
@@ -162,7 +167,7 @@ static unsigned int g_limited_max_ncpu;
 static unsigned int g_limited_max_freq;
 static unsigned int g_limited_min_freq;
 static unsigned int g_cpufreq_get_ptp_level = 0;
-static unsigned int g_max_freq_by_ptp = DVFS_F0; /* default 1.3GHz */
+static unsigned int g_max_freq_by_ptp; /* F4uzan: Fix this to 1.3 GHz again */
 #if defined(CONFIG_THERMAL_LIMIT_TEST)
 static unsigned int g_limited_load_for_thermal_test = 0;
 static unsigned int g_limited_max_thermal_power;
@@ -177,7 +182,7 @@ static bool mt_cpufreq_ready = false;
 static bool mt_cpufreq_pause = false;
 static bool mt_cpufreq_ptpod_disable = false;
 static bool mt_cpufreq_ptpod_voltage_down = false;
-//static bool mt_cpufreq_max_freq_overdrive = false;
+static bool mt_cpufreq_max_freq_overdrive = true;
 static bool mt_cpufreq_earlysuspend_allow_deepidle_control_vproc = false;
 static bool mt_cpufreq_freq_table_allocated = false;
 
@@ -217,32 +222,50 @@ struct mt_cpu_power_info
 ****************************/
 #if defined(HQA_LV_1_09V)
 static struct mt_cpu_freq_info mt6582_freqs_e1[] = {
+    OP(DVFS_F0_1, DVFS_V0),
+    OP(DVFS_F0_2, DVFS_V0),
     OP(DVFS_F0, DVFS_V0),
     OP(DVFS_F1, DVFS_V0),
-    OP(DVFS_F2, DVFS_V1),
-    OP(DVFS_F3, DVFS_V1),
-    OP(DVFS_F4, DVFS_V2),
-};
-#elif defined(HQA_NV_1_15V)
-static struct mt_cpu_freq_info mt6582_freqs_e1[] = {
-    OP(DVFS_F0, DVFS_V0),
-    OP(DVFS_F1, DVFS_V1),
-    OP(DVFS_F2, DVFS_V2),
-    OP(DVFS_F3, DVFS_V2),
-    OP(DVFS_F4, DVFS_V2),
-};
-#elif defined(HQA_HV_1_21V)
-static struct mt_cpu_freq_info mt6582_freqs_e1[] = {
-    OP(DVFS_F0, DVFS_V0),
-    OP(DVFS_F1, DVFS_V1),
+    OP(DVFS_F1_1, DVFS_V2),
     OP(DVFS_F2, DVFS_V1),
     OP(DVFS_F3, DVFS_V1),
     OP(DVFS_F4, DVFS_V1),
+    OP(DVFS_F5, DVFS_V1),
+    OP(DVFS_F6, DVFS_V1),
+};
+#elif defined(HQA_NV_1_15V)
+static struct mt_cpu_freq_info mt6582_freqs_e1[] = {
+    OP(DVFS_F0_1, DVFS_V0),
+    OP(DVFS_F0_2, DVFS_V0),
+    OP(DVFS_F0, DVFS_V0),
+    OP(DVFS_F1, DVFS_V1),
+    OP(DVFS_F1_1, DVFS_V2),
+    OP(DVFS_F2, DVFS_V2),
+    OP(DVFS_F3, DVFS_V2),
+    OP(DVFS_F4, DVFS_V2),
+    OP(DVFS_F5, DVFS_V2),
+    OP(DVFS_F6, DVFS_V2),
+};
+#elif defined(HQA_HV_1_21V)
+static struct mt_cpu_freq_info mt6582_freqs_e1[] = {
+    OP(DVFS_F0_1, DVFS_V0),
+    OP(DVFS_F0_2, DVFS_V0),
+    OP(DVFS_F0, DVFS_V0),
+    OP(DVFS_F1, DVFS_V1),
+    OP(DVFS_F1_1, DVFS_V1),
+    OP(DVFS_F2, DVFS_V1),
+    OP(DVFS_F3, DVFS_V1),
+    OP(DVFS_F4, DVFS_V1),
+    OP(DVFS_F5, DVFS_V1),
+    OP(DVFS_F6, DVFS_V1),
 };
 #else /* Normal case */
 static struct mt_cpu_freq_info mt6582_freqs_e1[] = {
+    OP(DVFS_F0_1, DVFS_V0_4),
+    OP(DVFS_F0_2, DVFS_V0_4),
     OP(DVFS_F0, DVFS_V0),
     OP(DVFS_F1, DVFS_V1),
+    OP(DVFS_F1_1, DVFS_V2),
     OP(DVFS_F2, DVFS_V2),
     OP(DVFS_F3, DVFS_V2),
     #ifdef MT_DVFS_LOW_VOLTAGE_SUPPORT
@@ -250,12 +273,17 @@ static struct mt_cpu_freq_info mt6582_freqs_e1[] = {
     #else
     OP(DVFS_F4, DVFS_V2),
     #endif
+    OP(DVFS_F5, DVFS_V4),
+    OP(DVFS_F6, DVFS_V1),
 };
 #endif
 
 static struct mt_cpu_freq_info mt6582_freqs_e1_1[] = {
+    OP(DVFS_F0_1, DVFS_V0_4),
+    OP(DVFS_F0_2, DVFS_V0_4),
     OP(DVFS_F0_1, DVFS_V0),
     OP(DVFS_F1, DVFS_V1),
+    OP(DVFS_F1_1, DVFS_V2),
     OP(DVFS_F2, DVFS_V2),
     OP(DVFS_F3, DVFS_V2),
     #ifdef MT_DVFS_LOW_VOLTAGE_SUPPORT
@@ -263,11 +291,16 @@ static struct mt_cpu_freq_info mt6582_freqs_e1_1[] = {
     #else
     OP(DVFS_F4, DVFS_V2),
     #endif
+    OP(DVFS_F5, DVFS_V4),
+    OP(DVFS_F6, DVFS_V1),    
 };
 
 static struct mt_cpu_freq_info mt6582_freqs_e1_2[] = {
+    OP(DVFS_F0_1, DVFS_V0_4),
+    OP(DVFS_F0_2, DVFS_V0_4),
     OP(DVFS_F0_2, DVFS_V0),
     OP(DVFS_F1, DVFS_V1),
+    OP(DVFS_F1_1, DVFS_V2),
     OP(DVFS_F2, DVFS_V2),
     OP(DVFS_F3, DVFS_V2),
     #ifdef MT_DVFS_LOW_VOLTAGE_SUPPORT
@@ -275,11 +308,15 @@ static struct mt_cpu_freq_info mt6582_freqs_e1_2[] = {
     #else
     OP(DVFS_F4, DVFS_V2),
     #endif
+    OP(DVFS_F5, DVFS_V4),
+    OP(DVFS_F6, DVFS_V1),
 };
 
 static struct mt_cpu_freq_info mt6582_freqs_e1_3[] = {
-    OP(DVFS_F0_3, DVFS_V0),
+    OP(DVFS_F0_1, DVFS_V0_4),
+    OP(DVFS_F0_2, DVFS_V0_4),
     OP(DVFS_F1, DVFS_V1),
+    OP(DVFS_F1_1, DVFS_V2),
     OP(DVFS_F2, DVFS_V2),
     OP(DVFS_F3, DVFS_V2),
     #ifdef MT_DVFS_LOW_VOLTAGE_SUPPORT
@@ -287,11 +324,15 @@ static struct mt_cpu_freq_info mt6582_freqs_e1_3[] = {
     #else
     OP(DVFS_F4, DVFS_V2),
     #endif
+    OP(DVFS_F5, DVFS_V4),
+    OP(DVFS_F6, DVFS_V1),
 };
 
 static struct mt_cpu_freq_info mt6582_freqs_e1_4[] = {
-    OP(DVFS_F0_4, DVFS_V0),
+    OP(DVFS_F0_1, DVFS_V0),
+    OP(DVFS_F0_2, DVFS_V0),
     OP(DVFS_F1, DVFS_V1),
+    OP(DVFS_F1_1, DVFS_V2),
     OP(DVFS_F2, DVFS_V2),
     OP(DVFS_F3, DVFS_V2),
     #ifdef MT_DVFS_LOW_VOLTAGE_SUPPORT
@@ -299,10 +340,15 @@ static struct mt_cpu_freq_info mt6582_freqs_e1_4[] = {
     #else
     OP(DVFS_F4, DVFS_V2),
     #endif
+    OP(DVFS_F5, DVFS_V4),
+    OP(DVFS_F6, DVFS_V1),
 };
 
 static struct mt_cpu_freq_info mt6582_freqs_e1_5[] = {
-    OP(DVFS_F1, DVFS_V1),               
+    OP(DVFS_F0_1, DVFS_V0_4),
+    OP(DVFS_F0_2, DVFS_V0_4),
+    OP(DVFS_F1, DVFS_V1),
+    OP(DVFS_F1_1, DVFS_V2),               
     OP(DVFS_F2, DVFS_V2),
     OP(DVFS_F3, DVFS_V2),
     #ifdef MT_DVFS_LOW_VOLTAGE_SUPPORT
@@ -310,9 +356,13 @@ static struct mt_cpu_freq_info mt6582_freqs_e1_5[] = {
     #else
     OP(DVFS_F4, DVFS_V2),
     #endif
+    OP(DVFS_F5, DVFS_V4),
+    OP(DVFS_F6, DVFS_V1),
 };
 
 static struct mt_cpu_freq_info mt6582_freqs_e1_6[] = {
+    OP(DVFS_F0_1, DVFS_V0_4),
+    OP(DVFS_F0_2, DVFS_V0_4),
     OP(DVFS_F1_1, DVFS_V1),               
     OP(DVFS_F2, DVFS_V2),
     OP(DVFS_F3, DVFS_V2),
@@ -321,6 +371,8 @@ static struct mt_cpu_freq_info mt6582_freqs_e1_6[] = {
     #else
     OP(DVFS_F4, DVFS_V2),
     #endif
+    OP(DVFS_F5, DVFS_V4),
+    OP(DVFS_F6, DVFS_V1),
 };
 
 static unsigned int mt_cpu_freqs_num;
@@ -439,6 +491,9 @@ static unsigned int mt_cpufreq_volt_to_pmic_wrap(unsigned int target_volt)
     {
         switch (target_volt)
         {
+            case DVFS_V0_4:
+                idx = 0;  // spm_dvfs_ctrl_volt(0);
+                break;
             case DVFS_V0:
                 idx = 0;  // spm_dvfs_ctrl_volt(0);
                 break;
@@ -904,6 +959,10 @@ static void mt_cpufreq_volt_set(unsigned int target_volt)
     {
         switch (target_volt)
         {
+            case DVFS_V0_4:
+                dprintk("switch to DVS0_4: %d mV\n", DVFS_V0);
+                spm_dvfs_ctrl_volt(0);
+                break;
             case DVFS_V0:
                 dprintk("switch to DVS0: %d mV\n", DVFS_V0);
                 spm_dvfs_ctrl_volt(0);
@@ -953,6 +1012,10 @@ static void mt_cpufreq_volt_set(unsigned int target_volt)
     {
         switch (target_volt)
         {
+            case DVFS_V0_4:
+                dprintk("switch to DVS0_4: %d mV\n", DVFS_V0);
+                spm_dvfs_ctrl_volt(0);
+                break;
             case DVFS_V0:
                 dprintk("switch to DVS0: %d mV\n", DVFS_V0);
                 spm_dvfs_ctrl_volt(0);
@@ -1349,11 +1412,11 @@ static int mt_cpufreq_init(struct cpufreq_policy *policy)
     * set default policy and cpuinfo, unit : Khz
     **********************************************/
     policy->cpuinfo.max_freq = g_max_freq_by_ptp;
-    policy->cpuinfo.min_freq = DVFS_F4;
+    policy->cpuinfo.min_freq = DVFS_F6;
 
     policy->cur = DVFS_F2;  /* Default 1.05GHz in preloader */
     policy->max = g_max_freq_by_ptp;
-    policy->min = DVFS_F4;
+    policy->min = DVFS_F6;
 
 #if 0
     ret = mt_setup_freqs_table(policy, ARRAY_AND_SIZE(mt6582_freqs_e1));
@@ -1378,8 +1441,7 @@ static int mt_cpufreq_init(struct cpufreq_policy *policy)
 
 #if defined(CONFIG_CPU_FREQ_GOV_HOTPLUG)
     /* install callback */
-    if(strcmp(policy->governor->name, "hotplug") == 0)
-        cpufreq_freq_check = _downgrade_freq_check;
+    cpufreq_freq_check = _downgrade_freq_check;
 #endif
 
     if (ret) {
@@ -1687,11 +1749,9 @@ void mt_cpufreq_thermal_protect(unsigned int limited_power)
         g_limited_max_freq = g_max_freq_by_ptp;
 
         cpufreq_driver_target(policy, g_limited_max_freq, CPUFREQ_RELATION_L);
-#if defined(CONFIG_CPU_FREQ_GOV_HOTPLUG)
-    if(strcmp(policy->governor->name, "hotplug") == 0) {
+#if defined(CONFIG_CPU_FREQ_GOV_HOTPLUG)		
         hp_limited_cpu_num(g_limited_max_ncpu);
         dbs_freq_thermal_limited(0, g_limited_max_freq);
-    }
 #endif
         xlog_printk(ANDROID_LOG_INFO, "Power/DVFS", "thermal limit g_limited_max_freq = %d, g_limited_max_ncpu = %d\n", g_limited_max_freq, g_limited_max_ncpu);
     }
@@ -1735,7 +1795,6 @@ void mt_cpufreq_thermal_protect(unsigned int limited_power)
 
         xlog_printk(ANDROID_LOG_INFO, "Power/DVFS", "thermal limit g_limited_max_freq = %d, g_limited_max_ncpu = %d\n", g_limited_max_freq, g_limited_max_ncpu);
 #if defined(CONFIG_CPU_FREQ_GOV_HOTPLUG)
-    if(strcmp(policy->governor->name, "hotplug") == 0)
         hp_limited_cpu_num(g_limited_max_ncpu);
 #endif
 
@@ -1752,7 +1811,6 @@ void mt_cpufreq_thermal_protect(unsigned int limited_power)
 
 
 #if defined(CONFIG_CPU_FREQ_GOV_HOTPLUG)
-    if(strcmp(policy->governor->name, "hotplug") == 0)
         dbs_freq_thermal_limited(1, g_limited_max_freq);
 #endif
     }
@@ -2285,12 +2343,8 @@ static int mt_cpufreq_pdrv_probe(struct platform_device *pdev)
     else if(g_cpufreq_get_ptp_level == 2)
         g_max_freq_by_ptp = DVFS_F0_2;
     else if(g_cpufreq_get_ptp_level == 3)
-        g_max_freq_by_ptp = DVFS_F0_3;
-    else if(g_cpufreq_get_ptp_level == 4)
-        g_max_freq_by_ptp = DVFS_F0_4;
-    else if(g_cpufreq_get_ptp_level == 5)
         g_max_freq_by_ptp = DVFS_F1;
-    else if(g_cpufreq_get_ptp_level == 6)
+    else if(g_cpufreq_get_ptp_level == 4)
         g_max_freq_by_ptp = DVFS_F1_1;
     else
         g_max_freq_by_ptp = DVFS_F0;
@@ -2304,7 +2358,7 @@ static int mt_cpufreq_pdrv_probe(struct platform_device *pdev)
     g_cur_freq = DVFS_F2;  /* Default 1.05GHz in preloader */
     g_cur_cpufreq_volt = DVFS_V2; /* Default 1.15V */
     g_limited_max_freq = g_max_freq_by_ptp;
-    g_limited_min_freq = DVFS_F4;
+    g_limited_min_freq = DVFS_F6;
 
     xlog_printk(ANDROID_LOG_INFO, "Power/DVFS", "mediatek cpufreq initialized\n");
 
