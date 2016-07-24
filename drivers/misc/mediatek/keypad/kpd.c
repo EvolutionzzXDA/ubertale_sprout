@@ -24,7 +24,6 @@
 #include <linux/of_irq.h>
 #endif
 
-
 #define KPD_NAME	"mtk-kpd"
 #define MTK_KP_WAKESOURCE	/* this is for auto set wake up source */
 
